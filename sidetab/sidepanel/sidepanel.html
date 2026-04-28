@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SideTab</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header id="app-header">
+    <h1 id="app-title">SideTab</h1>
+    <button id="btn-add-folder" title="Add Folder">+ Folder</button>
+  </header>
+
+  <div id="quick-actions">
+    <button id="btn-save-current" class="btn-primary" title="Save current tab">
+      Save Current Tab
+    </button>
+    <button id="btn-add-bookmark" class="btn-secondary" title="Add bookmark manually">
+      + Bookmark
+    </button>
+  </div>
+
+  <div id="folder-tree" role="tree"></div>
+
+  <!-- Context Menu -->
+  <div id="context-menu" class="hidden">
+    <div class="ctx-item" data-ctx-action="save-here">Save Current Tab Here</div>
+    <div class="ctx-separator"></div>
+    <div class="ctx-item" data-ctx-action="rename">Rename</div>
+    <div class="ctx-item ctx-danger" data-ctx-action="delete">Delete Folder</div>
+  </div>
+
+  <!-- Templates -->
+  <template id="tmpl-folder">
+    <div class="folder-node" role="treeitem">
+      <div class="folder-header" draggable="true">
+        <button class="btn-toggle" title="Toggle folder">&#9660;</button>
+        <span class="folder-icon">&#128193;</span>
+        <span class="folder-name">Folder Name</span>
+        <div class="folder-actions">
+          <button class="btn-folder-act" data-act="edit" title="Rename">&#9998;</button>
+          <button class="btn-folder-act" data-act="delete" title="Delete">&#10005;</button>
+        </div>
+      </div>
+      <div class="folder-children" role="group"></div>
+    </div>
+  </template>
+
+  <template id="tmpl-bookmark">
+    <div class="bookmark-node" role="treeitem" draggable="true">
+      <img class="bookmark-favicon" src="" alt="" width="16" height="16">
+      <span class="bookmark-title"></span>
+      <span class="bookmark-url"></span>
+      <button class="btn-bookmark-delete" title="Remove">&#10005;</button>
+    </div>
+  </template>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-box">
+      <h3 id="modal-title">Add Bookmark</h3>
+      <div class="modal-field">
+        <label for="input-bookmark-title">Title</label>
+        <input type="text" id="input-bookmark-title" placeholder="Page title" maxlength="200">
+      </div>
+      <div class="modal-field">
+        <label for="input-bookmark-url">URL</label>
+        <input type="url" id="input-bookmark-url" placeholder="https://example.com">
+      </div>
+      <div class="modal-field">
+        <label for="select-folder">Folder</label>
+        <select id="select-folder"></select>
+      </div>
+      <div class="modal-error hidden" id="modal-error"></div>
+      <div class="modal-buttons">
+        <button id="btn-modal-cancel" class="btn-secondary">Cancel</button>
+        <button id="btn-modal-save" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../lib/storage.js" type="module"></script>
+  <script src="sidepanel.js" type="module"></script>
+</body>
+</html>

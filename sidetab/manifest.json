@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "SideTab",
+  "version": "1.0.0",
+  "description": "Manage saved webpage tabs in a sidebar folder tree.",
+  "permissions": [
+    "sidePanel",
+    "tabs",
+    "storage",
+    "activeTab",
+    "favicon"
+  ],
+  "host_permissions": [
+    "chrome://favicon/*"
+  ],
+  "action": {
+    "default_title": "Open SideTab"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Toggle SideTab sidebar"
+    }
+  }
+}

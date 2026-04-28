@@ -1,0 +1,350 @@
+/* === CSS Variables === */
+:root {
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #252536;
+  --bg-hover: #313145;
+  --bg-active: #3b3b54;
+  --bg-drop-target: #40406a;
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --text-muted: #6c7086;
+  --accent: #89b4fa;
+  --accent-hover: #74c7ec;
+  --danger: #f38ba8;
+  --danger-hover: #f0627e;
+  --border: #45475a;
+  --radius: 6px;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-size: 13px;
+  --scrollbar-w: 6px;
+  --indent: 20px;
+  --item-h: 32px;
+}
+
+/* === Reset === */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  line-height: 1.4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100vh;
+  user-select: none;
+}
+
+body::-webkit-scrollbar { width: var(--scrollbar-w); }
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* === Header === */
+#app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 10;
+}
+
+#app-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+#btn-add-folder {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+#btn-add-folder:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* === Quick Actions === */
+#quick-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #1e1e2e;
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex: 1;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex: 1;
+}
+.btn-secondary:hover { background: var(--bg-hover); }
+
+/* === Empty State === */
+.empty-state {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+}
+.empty-state p { margin: 6px 0; font-size: 12px; }
+
+/* === Folder Tree === */
+#folder-tree { padding: 4px 0; }
+
+.folder-node { margin-bottom: 1px; }
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  height: var(--item-h);
+  padding: 0 8px 0 4px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: background 0.1s;
+  gap: 4px;
+}
+.folder-header:hover { background: var(--bg-hover); }
+
+.folder-header.drag-over-top { border-top: 2px solid var(--accent); }
+.folder-header.drag-over-bottom { border-bottom: 2px solid var(--accent); }
+.folder-header.drag-over-enter { background: var(--bg-drop-target); outline: 1px dashed var(--accent); }
+
+.btn-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 9px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.btn-toggle.collapsed { transform: rotate(-90deg); }
+
+.folder-icon { font-size: 14px; flex-shrink: 0; }
+
+.folder-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  outline: none;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.folder-name[contenteditable="true"] {
+  background: var(--bg-active);
+  cursor: text;
+  user-select: text;
+}
+
+.folder-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.folder-header:hover .folder-actions { opacity: 1; }
+
+.btn-folder-act {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.btn-folder-act:hover { color: var(--text-primary); background: var(--bg-active); }
+.btn-folder-act[data-act="delete"]:hover { color: var(--danger); }
+
+.folder-children { padding-left: var(--indent); }
+.folder-children.collapsed { display: none; }
+
+/* === Bookmark Node === */
+.bookmark-node {
+  display: flex;
+  align-items: center;
+  height: var(--item-h);
+  padding: 0 8px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  gap: 8px;
+  transition: background 0.1s;
+}
+.bookmark-node:hover { background: var(--bg-hover); }
+
+.bookmark-node.drag-over-top { border-top: 2px solid var(--accent); }
+.bookmark-node.drag-over-bottom { border-bottom: 2px solid var(--accent); }
+
+.bookmark-favicon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.bookmark-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-url {
+  color: var(--text-muted);
+  font-size: 11px;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.2s;
+}
+.bookmark-node:hover .bookmark-url { max-width: 140px; }
+
+.btn-bookmark-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px;
+  opacity: 0;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.bookmark-node:hover .btn-bookmark-delete { opacity: 1; }
+.btn-bookmark-delete:hover { color: var(--danger); background: var(--bg-active); }
+
+/* === Drag ghost === */
+.drag-ghost { opacity: 0.5; }
+
+/* === Context Menu === */
+#context-menu {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 180px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+#context-menu.hidden { display: none; }
+
+.ctx-item {
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+.ctx-item:hover { background: var(--bg-hover); }
+
+.ctx-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.ctx-danger { color: var(--danger); }
+.ctx-danger:hover { color: var(--danger-hover); }
+
+/* === Modal === */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 100;
+  padding-top: 60px;
+}
+#modal-overlay.hidden { display: none; }
+
+#modal-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  width: calc(100% - 32px);
+  max-width: 340px;
+}
+
+#modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-field { margin-bottom: 12px; }
+.modal-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.modal-field input,
+.modal-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  outline: none;
+}
+.modal-field input:focus,
+.modal-field select:focus {
+  border-color: var(--accent);
+}
+
+.modal-error {
+  color: var(--danger);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.modal-error.hidden { display: none; }
+
+.modal-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.modal-buttons .btn-secondary,
+.modal-buttons .btn-primary { flex: 0 0 auto; }
