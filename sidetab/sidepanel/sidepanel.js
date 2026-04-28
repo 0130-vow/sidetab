@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   state = await getStorage();
   renderAll();
   bindEvents();
+
+  // Auto-refresh when background worker modifies storage (tab close cleanup)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.sidetab_data) {
+      state = changes.sidetab_data.newValue || { folders: [], bookmarks: [] };
+      renderAll();
+    }
+  });
 });
 
 // === Rendering ===
@@ -80,6 +88,14 @@ function createBookmarkElement(bookmark) {
   root.querySelector('.bookmark-title').textContent = bookmark.title;
   root.querySelector('.bookmark-url').textContent = bookmark.url;
 
+  // Show green dot for bookmarks linked to an open browser tab
+  if (bookmark.tabId != null) {
+    const dot = document.createElement('span');
+    dot.className = 'live-dot';
+    dot.title = 'Linked to open tab';
+    root.appendChild(dot);
+  }
+
   return root;
 }
 
@@ -133,9 +149,19 @@ async function toggleFolder(folderId) {
 async function deleteFolder(folderId) {
   const bookmarksInFolder = state.bookmarks.filter(b => b.folderId === folderId);
   if (bookmarksInFolder.length > 0) {
-    const msg = `Delete folder "${state.folders.find(f => f.id === folderId)?.name}" and its ${bookmarksInFolder.length} bookmark(s)?`;
+    const liveCount = bookmarksInFolder.filter(b => b.tabId != null).length;
+    const extra = liveCount > 0 ? ` (${liveCount} associated tab(s) will also close)` : '';
+    const msg = `Delete folder "${state.folders.find(f => f.id === folderId)?.name}" and its ${bookmarksInFolder.length} bookmark(s)?${extra}`;
     if (!confirm(msg)) return;
   }
+
+  // Close all associated browser tabs
+  for (const bm of bookmarksInFolder) {
+    if (bm.tabId != null) {
+      chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: bm.tabId });
+    }
+  }
+
   await updateStorage(data => {
     data.folders = data.folders.filter(f => f.id !== folderId);
     data.bookmarks = data.bookmarks.filter(b => b.folderId !== folderId);
@@ -233,6 +259,13 @@ async function openBookmark(bookmarkId) {
 }
 
 async function deleteBookmark(bookmarkId) {
+  const bookmark = state.bookmarks.find(b => b.id === bookmarkId);
+
+  // Close the associated browser tab if this bookmark is linked to one
+  if (bookmark?.tabId != null) {
+    await chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: bookmark.tabId });
+  }
+
   await updateStorage(data => {
     data.bookmarks = data.bookmarks.filter(b => b.id !== bookmarkId);
     return data;

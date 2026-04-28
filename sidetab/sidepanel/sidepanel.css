@@ -246,6 +246,16 @@ body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .bookmark-node:hover .btn-bookmark-delete { opacity: 1; }
 .btn-bookmark-delete:hover { color: var(--danger); background: var(--bg-active); }
 
+/* === Live tab indicator === */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a6e3a1;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
 /* === Drag ghost === */
 .drag-ghost { opacity: 0.5; }
 
