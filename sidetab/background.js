@@ -2,29 +2,7 @@ import { getStorage, setStorage, generateId } from './lib/storage.js';
 
 chrome.runtime.onInstalled.addListener(async () => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-
-  // Scan all existing tabs and create bookmarks on first install
-  const data = await getStorage();
-  const existingIds = new Set(data.bookmarks.map(b => b.tabId));
-
-  const tabs = await chrome.tabs.query({});
-  let added = 0;
-  for (const tab of tabs) {
-    if (isTrackableUrl(tab.url) && !existingIds.has(tab.id)) {
-      const maxOrder = data.bookmarks.reduce((max, b) => Math.max(max, b.order), -1);
-      data.bookmarks.push({
-        id: generateId(),
-        folderId: null,
-        title: tab.title || tab.url,
-        url: tab.url,
-        favicon: tab.favIconUrl || '',
-        tabId: tab.id,
-        order: maxOrder + 1
-      });
-      added++;
-    }
-  }
-  if (added > 0) await setStorage(data);
+  await syncAllTabs();
 });
 
 // Auto-add bookmark when a new tab opens
@@ -99,9 +77,55 @@ async function handleMessage(msg) {
       return openOrSwitchToTab(msg.url);
     case 'CLOSE_TAB':
       return closeTab(msg.tabId);
+    case 'SYNC_TABS':
+      return syncAllTabs();
+    case 'DETACH_SIDEBAR':
+      return detachSidebar();
     default:
       return { error: 'Unknown message type' };
   }
+}
+
+async function syncAllTabs() {
+  const data = await getStorage();
+  const existingIds = new Set(data.bookmarks.map(b => b.tabId));
+  const tabs = await chrome.tabs.query({});
+  let added = 0;
+  for (const tab of tabs) {
+    if (isTrackableUrl(tab.url) && !existingIds.has(tab.id)) {
+      const maxOrder = data.bookmarks.reduce((max, b) => Math.max(max, b.order), -1);
+      data.bookmarks.push({
+        id: generateId(),
+        folderId: null,
+        title: tab.title || tab.url,
+        url: tab.url,
+        favicon: tab.favIconUrl || '',
+        tabId: tab.id,
+        order: maxOrder + 1
+      });
+      added++;
+    }
+  }
+  if (added > 0) await setStorage(data);
+  return { status: 'synced', added };
+}
+
+async function detachSidebar() {
+  const win = await chrome.windows.getLastFocused();
+  const popupWidth = 320;
+  const popupHeight = Math.min(win.height || 800, 900);
+  const left = Math.max(0, (win.left || 0) - popupWidth - 20);
+  const top = win.top || 40;
+
+  const popup = await chrome.windows.create({
+    url: chrome.runtime.getURL('sidepanel/sidepanel.html?float=1'),
+    type: 'popup',
+    width: popupWidth,
+    height: popupHeight,
+    left,
+    top
+  });
+  return { status: 'detached', windowId: popup.id };
 }
 
 function isTrackableUrl(url) {

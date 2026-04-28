@@ -3,12 +3,15 @@ import { getStorage, updateStorage, generateId } from '../lib/storage.js';
 let state = { folders: [], bookmarks: [] };
 let dragData = null;
 let ctxFolderId = null;
+let isFloatMode = new URLSearchParams(location.search).has('float');
+let isCollapsed = false;
 
 // === Init ===
 document.addEventListener('DOMContentLoaded', async () => {
   state = await getStorage();
   renderAll();
   bindEvents();
+  setupFloatMode();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.sidetab_data) {
@@ -17,6 +20,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 });
+
+function setupFloatMode() {
+  if (isFloatMode) {
+    document.body.classList.add('float-mode');
+    const btn = document.getElementById('btn-float');
+    btn.innerHTML = '&#128204;';
+    btn.title = 'Pin to sidebar';
+  }
+}
 
 // === Rendering ===
 function renderAll() {
@@ -105,12 +117,53 @@ function createBookmarkElement(bookmark) {
 
 // === Event Binding ===
 function bindEvents() {
+  document.getElementById('btn-sync').addEventListener('click', syncTabs);
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
+  document.getElementById('btn-float').addEventListener('click', toggleFloatMode);
+  document.getElementById('btn-collapse').addEventListener('click', toggleCollapse);
   document.getElementById('content-area').addEventListener('click', handleTreeClick);
   document.getElementById('content-area').addEventListener('dblclick', handleTreeDblClick);
   document.getElementById('content-area').addEventListener('contextmenu', handleContextMenu);
   document.addEventListener('click', () => hideContextMenu());
   bindDragAndDrop();
+}
+
+async function syncTabs() {
+  const btn = document.getElementById('btn-sync');
+  btn.classList.add('spinning');
+  const result = await chrome.runtime.sendMessage({ type: 'SYNC_TABS' });
+  btn.classList.remove('spinning');
+  if (result.status === 'synced' && result.added > 0) {
+    // Storage onChanged will trigger re-render
+  }
+}
+
+async function toggleFloatMode() {
+  if (isFloatMode) {
+    // Pin: close popup, reopen side panel
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      chrome.sidePanel.open({ windowId: tab.windowId });
+    }
+    window.close();
+  } else {
+    // Detach: open floating popup
+    await chrome.runtime.sendMessage({ type: 'DETACH_SIDEBAR' });
+  }
+}
+
+function toggleCollapse() {
+  isCollapsed = !isCollapsed;
+  const btn = document.getElementById('btn-collapse');
+  if (isCollapsed) {
+    document.body.classList.add('collapsed');
+    btn.innerHTML = '&#9654;';
+    btn.title = 'Expand sidebar';
+  } else {
+    document.body.classList.remove('collapsed');
+    btn.innerHTML = '&#9664;';
+    btn.title = 'Collapse sidebar';
+  }
 }
 
 // === Folder Operations ===
