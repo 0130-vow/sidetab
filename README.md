@@ -1,49 +1,51 @@
 # SideTab
 
-A Chrome extension that organizes your tabs in a sidebar folder tree. Think of it as a live bookmark manager — save tabs into categorized folders, and keep them in sync with your browser.
+Chrome 侧边栏标签管理插件。将网页标签保存到侧边栏的分类文件夹中，与浏览器标签栏保持同步——关闭标签即删除记录，删除记录即关闭标签。
 
-## Features
+## 功能
 
-- **Sidebar panel** — opens from the toolbar icon or `Ctrl+Shift+S`
-- **Folder tree** — categorize saved tabs into collapsible folders
-- **Live tab sync** — bookmarks linked to open tabs; close the tab → bookmark removed, delete the bookmark → tab closed
-- **Smart open** — clicking a bookmark switches to the existing tab if already open, or opens a new one
-- **Drag & drop** — reorder folders and bookmarks, move bookmarks between folders
-- **One-click save** — save the current tab to any folder instantly
-- **Manual add** — add bookmarks by typing a title and URL
-- **Inline rename** — double-click a folder name to rename it
-- **Local storage** — all data stored in `chrome.storage.local`, no account or cloud sync needed
+- **侧边栏面板** — 点击工具栏图标或按 `Ctrl+Shift+S` 打开
+- **文件夹分类** — 将保存的标签归类到可折叠的文件夹中
+- **双向同步** — 书签与浏览器标签绑定；关闭标签页 → 自动删除书签，删除书签 → 自动关闭标签页
+- **智能打开** — 点击书签时，如果 URL 已在某个标签页中打开则直接切换到该标签页，否则新建标签页
+- **拖拽排序** — 文件夹和书签均支持拖拽调整顺序，书签可跨文件夹移动
+- **一键保存** — 点击按钮即可将当前标签页保存到文件夹
+- **手动添加** — 可手动输入标题和 URL 添加书签
+- **双击重命名** — 双击文件夹名称即可编辑
+- **本地存储** — 所有数据保存在 `chrome.storage.local`，无需登录或云端同步
 
-## Install
+## 安装
 
-1. Clone or download this repository
-2. Open `chrome://extensions` in Chrome
-3. Enable **Developer mode** (toggle in top-right)
-4. Click **Load unpacked** and select the `sidetab/` folder
+1. 克隆或下载本仓库
+2. 在 Chrome 中打开 `chrome://extensions`
+3. 开启右上角**开发者模式**
+4. 点击**加载已解压的扩展程序**，选择 `sidetab/` 文件夹
 
-The SideTab icon will appear in your toolbar. Click it or press `Ctrl+Shift+S` to open the sidebar.
+工具栏会出现 SideTab 图标，点击或按 `Ctrl+Shift+S` 即可打开侧边栏。
 
-## Usage
+> **注意**：Chrome 的侧边栏固定显示在浏览器右侧，无法移到左侧。
 
-| Action | How |
-|--------|-----|
-| Add folder | Click `+ Folder` button |
-| Rename folder | Double-click the folder name |
-| Collapse/expand | Click the arrow next to a folder |
-| Save current tab | Click `Save Current Tab` (saves to first folder) |
-| Save to specific folder | Right-click a folder → `Save Current Tab Here` |
-| Add bookmark manually | Click `+ Bookmark`, fill in title & URL |
-| Open bookmark | Click the bookmark — switches to existing tab or opens new one |
-| Delete bookmark | Hover and click the X button |
-| Delete folder | Hover and click the X button (or right-click → Delete) |
-| Reorder | Drag and drop folders or bookmarks |
+## 使用指南
 
-## Permissions
+| 操作 | 方式 |
+|------|------|
+| 添加文件夹 | 点击 `+ Folder` 按钮 |
+| 重命名文件夹 | 双击文件夹名称 |
+| 折叠/展开 | 点击文件夹左侧箭头 |
+| 保存当前标签页 | 点击 `Save Current Tab`（保存到第一个文件夹） |
+| 保存到指定文件夹 | 右键文件夹 → `Save Current Tab Here` |
+| 手动添加书签 | 点击 `+ Bookmark`，填写标题和 URL |
+| 打开书签 | 点击书签，已打开则切换，未打开则新建 |
+| 删除书签 | 悬停后点击右侧 X 按钮 |
+| 删除文件夹 | 悬停后点击右侧 X 按钮（或右键 → Delete） |
+| 排序 | 拖拽文件夹或书签即可 |
 
-| Permission | Purpose |
-|------------|---------|
-| `sidePanel` | Open the sidebar panel |
-| `tabs` | Query, switch, create, and close browser tabs |
-| `storage` | Persist folder and bookmark data locally |
-| `activeTab` | Read the current tab's title and URL for saving |
-| `favicon` | Display website favicons in bookmark entries |
+## 权限说明
+
+| 权限 | 用途 |
+|------|------|
+| `sidePanel` | 打开侧边栏面板 |
+| `tabs` | 查询、切换、创建和关闭浏览器标签页 |
+| `storage` | 本地持久化保存文件夹和书签数据 |
+| `activeTab` | 获取当前标签页的标题和 URL |
+| `favicon` | 显示网站图标 |
