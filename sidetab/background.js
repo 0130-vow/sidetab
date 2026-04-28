@@ -1,7 +1,81 @@
 import { getStorage, setStorage, generateId } from './lib/storage.js';
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+  // Scan all existing tabs and create bookmarks on first install
+  const data = await getStorage();
+  const existingIds = new Set(data.bookmarks.map(b => b.tabId));
+
+  const tabs = await chrome.tabs.query({});
+  let added = 0;
+  for (const tab of tabs) {
+    if (isTrackableUrl(tab.url) && !existingIds.has(tab.id)) {
+      const maxOrder = data.bookmarks.reduce((max, b) => Math.max(max, b.order), -1);
+      data.bookmarks.push({
+        id: generateId(),
+        folderId: null,
+        title: tab.title || tab.url,
+        url: tab.url,
+        favicon: tab.favIconUrl || '',
+        tabId: tab.id,
+        order: maxOrder + 1
+      });
+      added++;
+    }
+  }
+  if (added > 0) await setStorage(data);
+});
+
+// Auto-add bookmark when a new tab opens
+chrome.tabs.onCreated.addListener(async (tab) => {
+  if (!isTrackableUrl(tab.url)) return;
+  const data = await getStorage();
+  const maxOrder = data.bookmarks.reduce((max, b) => Math.max(max, b.order), -1);
+  data.bookmarks.push({
+    id: generateId(),
+    folderId: null,
+    title: tab.title || tab.url,
+    url: tab.url,
+    favicon: tab.favIconUrl || '',
+    tabId: tab.id,
+    order: maxOrder + 1
+  });
+  await setStorage(data);
+});
+
+// Update bookmark when tab title/url/favicon changes
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (!changeInfo.title && !changeInfo.url && !changeInfo.favIconUrl) return;
+  if (!isTrackableUrl(tab.url) && !changeInfo.url) return;
+
+  const data = await getStorage();
+  const bm = data.bookmarks.find(b => b.tabId === tabId);
+
+  if (bm) {
+    // If URL changed to something untrackable, remove the bookmark
+    if (changeInfo.url && !isTrackableUrl(tab.url)) {
+      data.bookmarks = data.bookmarks.filter(b => b.tabId !== tabId);
+    } else {
+      if (changeInfo.title) bm.title = tab.title || tab.url;
+      if (changeInfo.url) bm.url = tab.url;
+      if (changeInfo.favIconUrl) bm.favicon = tab.favIconUrl;
+    }
+    await setStorage(data);
+  } else if (isTrackableUrl(tab.url)) {
+    // New tab just got a real URL (e.g. opened from new-tab page)
+    const maxOrder = data.bookmarks.reduce((max, b) => Math.max(max, b.order), -1);
+    data.bookmarks.push({
+      id: generateId(),
+      folderId: null,
+      title: tab.title || tab.url,
+      url: tab.url,
+      favicon: tab.favIconUrl || '',
+      tabId: tab.id,
+      order: maxOrder + 1
+    });
+    await setStorage(data);
+  }
 });
 
 // Clean up bookmarks when their associated tabs are closed
@@ -21,12 +95,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 async function handleMessage(msg) {
   switch (msg.type) {
-    case 'GET_CURRENT_TAB':
-      return getCurrentTab();
     case 'OPEN_BOOKMARK':
       return openOrSwitchToTab(msg.url);
-    case 'SAVE_CURRENT_TAB':
-      return saveCurrentTab(msg.folderId);
     case 'CLOSE_TAB':
       return closeTab(msg.tabId);
     default:
@@ -34,9 +104,12 @@ async function handleMessage(msg) {
   }
 }
 
-async function getCurrentTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  return { title: tab?.title || '', url: tab?.url || '', favicon: tab?.favIconUrl || '' };
+function isTrackableUrl(url) {
+  if (!url) return false;
+  return !url.startsWith('chrome://') &&
+         !url.startsWith('chrome-extension://') &&
+         !url.startsWith('about:') &&
+         !url.startsWith('edge://');
 }
 
 function normalizeUrl(url) {
@@ -65,49 +138,11 @@ async function openOrSwitchToTab(targetUrl) {
   return { status: 'created', tabId: tab.id };
 }
 
-async function saveCurrentTab(folderId) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.url) return { status: 'error', message: 'No active tab found' };
-
-  const data = await getStorage();
-  const folder = data.folders.find(f => f.id === folderId);
-  if (!folder) return { status: 'error', message: 'Folder not found' };
-
-  // Update existing bookmark for this tab instead of creating a duplicate
-  const existing = data.bookmarks.find(b => b.tabId === tab.id);
-  if (existing) {
-    existing.title = tab.title || tab.url;
-    existing.url = tab.url;
-    existing.favicon = tab.favIconUrl || '';
-    existing.folderId = folderId;
-    await setStorage(data);
-    return { status: 'updated', bookmark: existing };
-  }
-
-  const siblings = data.bookmarks.filter(b => b.folderId === folderId);
-  const maxOrder = siblings.reduce((max, b) => Math.max(max, b.order), -1);
-
-  const bookmark = {
-    id: generateId(),
-    folderId,
-    title: tab.title || tab.url,
-    url: tab.url,
-    favicon: tab.favIconUrl || '',
-    tabId: tab.id,
-    order: maxOrder + 1
-  };
-
-  data.bookmarks.push(bookmark);
-  await setStorage(data);
-  return { status: 'saved', bookmark };
-}
-
 async function closeTab(tabId) {
   try {
     await chrome.tabs.remove(tabId);
     return { status: 'closed' };
   } catch {
-    // Tab already gone — clean up the bookmark
     const data = await getStorage();
     data.bookmarks = data.bookmarks.filter(b => b.tabId !== tabId);
     await setStorage(data);

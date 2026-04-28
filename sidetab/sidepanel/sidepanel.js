@@ -1,4 +1,4 @@
-import { getStorage, setStorage, updateStorage, generateId } from '../lib/storage.js';
+import { getStorage, updateStorage, generateId } from '../lib/storage.js';
 
 let state = { folders: [], bookmarks: [] };
 let dragData = null;
@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderAll();
   bindEvents();
 
-  // Auto-refresh when background worker modifies storage (tab close cleanup)
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.sidetab_data) {
       state = changes.sidetab_data.newValue || { folders: [], bookmarks: [] };
@@ -21,26 +20,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // === Rendering ===
 function renderAll() {
+  const uncategorized = document.getElementById('uncategorized-children');
   const tree = document.getElementById('folder-tree');
-  tree.innerHTML = '';
+  const uncatSection = document.getElementById('uncategorized-section');
 
-  const sorted = [...state.folders].sort((a, b) => a.order - b.order);
+  // Uncategorized bookmarks (folderId === null)
+  const uncatBookmarks = state.bookmarks
+    .filter(b => b.folderId === null)
+    .sort((a, b) => a.order - b.order);
 
-  if (sorted.length === 0) {
-    tree.innerHTML = '<div class="empty-state"><p>No folders yet</p><p>Click "+ Folder" to start</p></div>';
-    return;
+  uncategorized.innerHTML = '';
+  if (uncatBookmarks.length === 0) {
+    uncatSection.classList.add('empty');
+  } else {
+    uncatSection.classList.remove('empty');
+    for (const bm of uncatBookmarks) {
+      uncategorized.appendChild(createBookmarkElement(bm));
+    }
   }
+  document.getElementById('uncategorized-count').textContent =
+    uncatBookmarks.length > 0 ? `(${uncatBookmarks.length})` : '';
 
+  // Folder tree
+  tree.innerHTML = '';
+  const sorted = [...state.folders].sort((a, b) => a.order - b.order);
   for (const folder of sorted) {
     tree.appendChild(createFolderElement(folder));
-  }
-
-  // Update modal folder selector
-  const select = document.getElementById('select-folder');
-  if (select) {
-    select.innerHTML = sorted.map(f =>
-      `<option value="${f.id}">${escapeHtml(f.name)}</option>`
-    ).join('');
   }
 }
 
@@ -88,7 +93,6 @@ function createBookmarkElement(bookmark) {
   root.querySelector('.bookmark-title').textContent = bookmark.title;
   root.querySelector('.bookmark-url').textContent = bookmark.url;
 
-  // Show green dot for bookmarks linked to an open browser tab
   if (bookmark.tabId != null) {
     const dot = document.createElement('span');
     dot.className = 'live-dot';
@@ -102,34 +106,18 @@ function createBookmarkElement(bookmark) {
 // === Event Binding ===
 function bindEvents() {
   document.getElementById('btn-add-folder').addEventListener('click', addFolder);
-  document.getElementById('btn-save-current').addEventListener('click', () => saveCurrentTab());
-  document.getElementById('btn-add-bookmark').addEventListener('click', openModal);
-  document.getElementById('btn-modal-save').addEventListener('click', saveBookmark);
-  document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
-  document.getElementById('input-bookmark-title').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') saveBookmark();
-    if (e.key === 'Escape') closeModal();
-  });
-  document.getElementById('input-bookmark-url').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') saveBookmark();
-    if (e.key === 'Escape') closeModal();
-  });
-  document.getElementById('modal-overlay').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeModal();
-  });
-  document.getElementById('folder-tree').addEventListener('click', handleTreeClick);
-  document.getElementById('folder-tree').addEventListener('dblclick', handleTreeDblClick);
-  document.getElementById('folder-tree').addEventListener('contextmenu', handleContextMenu);
+  document.getElementById('content-area').addEventListener('click', handleTreeClick);
+  document.getElementById('content-area').addEventListener('dblclick', handleTreeDblClick);
+  document.getElementById('content-area').addEventListener('contextmenu', handleContextMenu);
   document.addEventListener('click', () => hideContextMenu());
   bindDragAndDrop();
 }
 
 // === Folder Operations ===
 async function addFolder() {
-  const name = `New Folder`;
   await updateStorage(data => {
     const maxOrder = data.folders.reduce((max, f) => Math.max(max, f.order), -1);
-    data.folders.push({ id: generateId(), name, collapsed: false, order: maxOrder + 1 });
+    data.folders.push({ id: generateId(), name: 'New Folder', collapsed: false, order: maxOrder + 1 });
     return data;
   });
   state = await getStorage();
@@ -155,7 +143,6 @@ async function deleteFolder(folderId) {
     if (!confirm(msg)) return;
   }
 
-  // Close all associated browser tabs
   for (const bm of bookmarksInFolder) {
     if (bm.tabId != null) {
       chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: bm.tabId });
@@ -180,78 +167,9 @@ async function renameFolder(folderId, newName) {
     return data;
   });
   state = await getStorage();
-  // Don't full re-render during inline edit, just update the DOM text
 }
 
 // === Bookmark Operations ===
-function openModal() {
-  document.getElementById('modal-title').textContent = 'Add Bookmark';
-  document.getElementById('input-bookmark-title').value = '';
-  document.getElementById('input-bookmark-url').value = '';
-  document.getElementById('modal-error').classList.add('hidden');
-  document.getElementById('modal-overlay').classList.remove('hidden');
-  document.getElementById('input-bookmark-title').focus();
-}
-
-function closeModal() {
-  document.getElementById('modal-overlay').classList.add('hidden');
-}
-
-async function saveBookmark() {
-  const title = document.getElementById('input-bookmark-title').value.trim();
-  const url = document.getElementById('input-bookmark-url').value.trim();
-  const folderId = document.getElementById('select-folder').value;
-  const errEl = document.getElementById('modal-error');
-
-  if (!title) { errEl.textContent = 'Title is required'; errEl.classList.remove('hidden'); return; }
-  if (!url) { errEl.textContent = 'URL is required'; errEl.classList.remove('hidden'); return; }
-
-  try { new URL(url); } catch {
-    errEl.textContent = 'Invalid URL (must include https://)';
-    errEl.classList.remove('hidden');
-    return;
-  }
-
-  await updateStorage(data => {
-    const siblings = data.bookmarks.filter(b => b.folderId === folderId);
-    const maxOrder = siblings.reduce((max, b) => Math.max(max, b.order), -1);
-    data.bookmarks.push({
-      id: generateId(),
-      folderId,
-      title,
-      url,
-      favicon: `chrome://favicon/size/16@2x/${url}`,
-      order: maxOrder + 1
-    });
-    return data;
-  });
-
-  state = await getStorage();
-  renderAll();
-  closeModal();
-}
-
-async function saveCurrentTab(targetFolderId) {
-  // Use specified folder, or first folder, or create default
-  let folderId = targetFolderId;
-  if (!folderId) {
-    if (state.folders.length === 0) {
-      await addFolder();
-      folderId = state.folders[0]?.id;
-    } else {
-      folderId = state.folders[0].id;
-    }
-  }
-  if (!folderId) return;
-
-  const result = await chrome.runtime.sendMessage({ type: 'SAVE_CURRENT_TAB', folderId });
-
-  if (result.status === 'saved') {
-    state = await getStorage();
-    renderAll();
-  }
-}
-
 async function openBookmark(bookmarkId) {
   const bookmark = state.bookmarks.find(b => b.id === bookmarkId);
   if (!bookmark) return;
@@ -260,12 +178,9 @@ async function openBookmark(bookmarkId) {
 
 async function deleteBookmark(bookmarkId) {
   const bookmark = state.bookmarks.find(b => b.id === bookmarkId);
-
-  // Close the associated browser tab if this bookmark is linked to one
   if (bookmark?.tabId != null) {
     await chrome.runtime.sendMessage({ type: 'CLOSE_TAB', tabId: bookmark.tabId });
   }
-
   await updateStorage(data => {
     data.bookmarks = data.bookmarks.filter(b => b.id !== bookmarkId);
     return data;
@@ -281,23 +196,23 @@ async function moveBookmark(bookmarkId, targetFolderId, insertBeforeId) {
 
     bm.folderId = targetFolderId;
 
-    // Reorder within target folder
-    const others = data.bookmarks.filter(b => b.folderId === targetFolderId && b.id !== bookmarkId)
-      .sort((a, b) => a.order - b.order);
+    const others = data.bookmarks.filter(b =>
+      b.folderId === targetFolderId && b.id !== bookmarkId
+    ).sort((a, b) => a.order - b.order);
 
     if (insertBeforeId) {
       const idx = others.findIndex(b => b.id === insertBeforeId);
-      if (idx >= 0) {
-        others.splice(idx, 0, bm);
-      } else {
-        others.push(bm);
-      }
+      if (idx >= 0) others.splice(idx, 0, bm);
+      else others.push(bm);
     } else {
       others.push(bm);
     }
 
     others.forEach((b, i) => { b.order = i; });
-    data.bookmarks = [...data.bookmarks.filter(b => b.folderId !== targetFolderId), ...others];
+    data.bookmarks = [
+      ...data.bookmarks.filter(b => b.folderId !== targetFolderId),
+      ...others
+    ];
     return data;
   });
 
@@ -376,10 +291,6 @@ function startInlineEdit(nameEl, folderId) {
     }
     await renameFolder(folderId, newName);
     nameEl.textContent = newName;
-    // Update modal folder selector
-    const select = document.getElementById('select-folder');
-    const opt = select?.querySelector(`option[value="${folderId}"]`);
-    if (opt) opt.textContent = newName;
   };
 
   const onKey = (e) => {
@@ -408,13 +319,11 @@ function handleContextMenu(e) {
   const menu = document.getElementById('context-menu');
   menu.classList.remove('hidden');
   menu.style.left = e.clientX + 'px';
-  menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px';
 
   menu.onclick = async (ev) => {
     const action = ev.target.dataset.ctxAction;
-    if (action === 'save-here') {
-      await saveCurrentTab(ctxFolderId);
-    } else if (action === 'rename') {
+    if (action === 'rename') {
       const nameEl = folderHdr.querySelector('.folder-name');
       if (nameEl) startInlineEdit(nameEl, ctxFolderId);
     } else if (action === 'delete') {
@@ -434,9 +343,9 @@ function hideContextMenu() {
 
 // === Drag and Drop ===
 function bindDragAndDrop() {
-  const tree = document.getElementById('folder-tree');
+  const area = document.getElementById('content-area');
 
-  tree.addEventListener('dragstart', (e) => {
+  area.addEventListener('dragstart', (e) => {
     const folderHdr = e.target.closest('.folder-header');
     const bmNode = e.target.closest('.bookmark-node');
 
@@ -458,20 +367,28 @@ function bindDragAndDrop() {
     }
   });
 
-  tree.addEventListener('dragend', () => {
-    tree.querySelectorAll('.drag-ghost, .drag-over-top, .drag-over-bottom, .drag-over-enter')
+  area.addEventListener('dragend', () => {
+    area.querySelectorAll('.drag-ghost, .drag-over-top, .drag-over-bottom, .drag-over-enter')
       .forEach(el => el.classList.remove('drag-ghost', 'drag-over-top', 'drag-over-bottom', 'drag-over-enter'));
     dragData = null;
   });
 
-  tree.addEventListener('dragover', (e) => {
+  area.addEventListener('dragover', (e) => {
     e.preventDefault();
     if (!dragData) return;
 
     clearDragIndicators();
 
     const target = findDropTarget(e.target);
-    if (!target) return;
+    const uncatSection = document.getElementById('uncategorized-section');
+
+    if (!target) {
+      // Dropping onto empty uncategorized area or section header
+      if (dragData.type === 'bookmark' && isOverUncategorized(e.target)) {
+        uncatSection.classList.add('drag-over-enter');
+      }
+      return;
+    }
 
     const rect = target.getBoundingClientRect();
     const ratio = (e.clientY - rect.top) / rect.height;
@@ -493,12 +410,20 @@ function bindDragAndDrop() {
     e.dataTransfer.dropEffect = 'move';
   });
 
-  tree.addEventListener('drop', async (e) => {
+  area.addEventListener('drop', async (e) => {
     e.preventDefault();
     clearDragIndicators();
     if (!dragData) return;
 
     const target = findDropTarget(e.target);
+
+    if (!target && dragData.type === 'bookmark' && isOverUncategorized(e.target)) {
+      // Drop bookmark into uncategorized area
+      await moveBookmark(dragData.id, null, null);
+      dragData = null;
+      return;
+    }
+
     if (!target) { dragData = null; return; }
 
     const rect = target.getBoundingClientRect();
@@ -514,18 +439,28 @@ function bindDragAndDrop() {
   });
 }
 
+function isOverUncategorized(el) {
+  // Check if dragging over the uncategorized section or its children
+  const uncat = document.getElementById('uncategorized-section');
+  if (!uncat) return false;
+  // Is the element inside uncategorized (and not inside a folder node)?
+  if (uncat.contains(el) && !el.closest('.folder-node')) return true;
+  return false;
+}
+
 function findDropTarget(el) {
   return el.closest('.folder-header') || el.closest('.bookmark-node');
 }
 
 function clearDragIndicators() {
+  const uncat = document.getElementById('uncategorized-section');
+  if (uncat) uncat.classList.remove('drag-over-enter');
   document.querySelectorAll('.drag-over-top, .drag-over-bottom, .drag-over-enter')
     .forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-enter'));
 }
 
 async function handleFolderDrop(draggedId, target, ratio) {
-  const targetFolderNode = target.closest('.folder-node');
-  const targetId = targetFolderNode.dataset.folderId;
+  const targetId = target.closest('.folder-node').dataset.folderId;
   if (draggedId === targetId) return;
 
   await updateStorage(data => {
@@ -559,11 +494,13 @@ async function handleBookmarkDrop(dragInfo, target, ratio) {
   if (isFolderHeader) {
     targetFolderId = target.closest('.folder-node').dataset.folderId;
   } else if (isBookmark) {
-    targetFolderId = target.closest('.folder-node').dataset.folderId;
+    // Check if target is in uncategorized or in a folder
+    const folderNode = target.closest('.folder-node');
+    targetFolderId = folderNode ? folderNode.dataset.folderId : null;
+
     if (ratio < 0.5) {
       insertBeforeId = target.dataset.bookmarkId;
     } else {
-      // Insert after: find next sibling
       const siblings = state.bookmarks
         .filter(b => b.folderId === targetFolderId)
         .sort((a, b) => a.order - b.order);

@@ -1,9 +1,7 @@
 const STORAGE_KEY = 'sidetab_data';
 
 const DEFAULT_DATA = {
-  folders: [
-    { id: 'default-folder', name: 'Saved Tabs', collapsed: false, order: 0 }
-  ],
+  folders: [],
   bookmarks: []
 };
 

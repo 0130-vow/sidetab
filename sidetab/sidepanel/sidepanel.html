@@ -12,21 +12,23 @@
     <button id="btn-add-folder" title="Add Folder">+ Folder</button>
   </header>
 
-  <div id="quick-actions">
-    <button id="btn-save-current" class="btn-primary" title="Save current tab">
-      Save Current Tab
-    </button>
-    <button id="btn-add-bookmark" class="btn-secondary" title="Add bookmark manually">
-      + Bookmark
-    </button>
-  </div>
+  <div id="content-area">
+    <!-- Uncategorized bookmarks -->
+    <div id="uncategorized-section" class="tree-section">
+      <div class="section-header">
+        <span class="section-icon">&#128278;</span>
+        <span class="section-label">Uncategorized</span>
+        <span class="section-count" id="uncategorized-count"></span>
+      </div>
+      <div class="section-children" id="uncategorized-children" role="group"></div>
+    </div>
 
-  <div id="folder-tree" role="tree"></div>
+    <!-- Folder tree -->
+    <div id="folder-tree" role="tree"></div>
+  </div>
 
   <!-- Context Menu -->
   <div id="context-menu" class="hidden">
-    <div class="ctx-item" data-ctx-action="save-here">Save Current Tab Here</div>
-    <div class="ctx-separator"></div>
     <div class="ctx-item" data-ctx-action="rename">Rename</div>
     <div class="ctx-item ctx-danger" data-ctx-action="delete">Delete Folder</div>
   </div>
@@ -55,30 +57,6 @@
       <button class="btn-bookmark-delete" title="Remove">&#10005;</button>
     </div>
   </template>
-
-  <!-- Modal -->
-  <div id="modal-overlay" class="hidden">
-    <div id="modal-box">
-      <h3 id="modal-title">Add Bookmark</h3>
-      <div class="modal-field">
-        <label for="input-bookmark-title">Title</label>
-        <input type="text" id="input-bookmark-title" placeholder="Page title" maxlength="200">
-      </div>
-      <div class="modal-field">
-        <label for="input-bookmark-url">URL</label>
-        <input type="url" id="input-bookmark-url" placeholder="https://example.com">
-      </div>
-      <div class="modal-field">
-        <label for="select-folder">Folder</label>
-        <select id="select-folder"></select>
-      </div>
-      <div class="modal-error hidden" id="modal-error"></div>
-      <div class="modal-buttons">
-        <button id="btn-modal-cancel" class="btn-secondary">Cancel</button>
-        <button id="btn-modal-save" class="btn-primary">Save</button>
-      </div>
-    </div>
-  </div>
 
   <script src="../lib/storage.js" type="module"></script>
   <script src="sidepanel.js" type="module"></script>
